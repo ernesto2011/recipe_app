@@ -1,18 +1,36 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:recipe_app/sreens/recipe_detail.dart';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  Future<List<dynamic>> getRecipes() async {
+    final url = Uri.parse('http://10.0.2.2:3003/recipes');
+    final response = await http.get(url);
+    final data = jsonDecode(response.body);
+    return data['recipes'];
+  }
   @override
   Widget build(BuildContext context) {
+    
     return Scaffold(
-      body: Column(
-        children: <Widget>[
-          _RecipesCard(context),
-          _RecipesCard(context),
-          _RecipesCard(context),
-        ],
-      ),
+      body: FutureBuilder<List<dynamic>>(
+      future: getRecipes(), 
+      builder: (context, snapshot){
+        final recipes = snapshot.data;
+        if(snapshot.connectionState == ConnectionState.waiting){
+          return const Center(child: CircularProgressIndicator());
+        }
+        return ListView.builder(
+          itemCount: recipes!.length,
+          itemBuilder:(context, index){
+            return _RecipesCard(context, recipes[index]);
+          }
+
+        );
+      }),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showBotton(context);
@@ -28,7 +46,7 @@ class HomeScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder:
-          (context) => Container(
+          (context) => SizedBox(
             height: 550,
             width: MediaQuery.of(context).size.width,
             child: SingleChildScrollView(
@@ -42,45 +60,58 @@ class HomeScreen extends StatelessWidget {
   }
 
   // ignore: non_constant_identifier_names
-  Widget _RecipesCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SizedBox(
-        width: MediaQuery.of(context).size.width,
-        height: 125,
-        child: Card(
-          child: Row(
-            children: <Widget>[
-              SizedBox(
-                height: 125,
-                width: 100,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    'https://newmansown.com/wp-content/uploads/2022/03/Lasagna-Primavera-1024x683.jpeg',
-                    fit: BoxFit.cover,
+  Widget _RecipesCard(BuildContext context, dynamic recipe) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context)=> RecipeDetail(recipeName: recipe['name'])));
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: 125,
+          child: Card(
+            child: Row(
+              children: <Widget>[
+                SizedBox(
+                  height: 125,
+                  width: 100,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      recipe['image_link'],
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace){
+                        return Container(
+                          color: Colors.grey[300],
+                          child: Center(
+                            child: Icon(Icons.error, color: Colors.red),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(width: 26),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Lasagna',
-                    style: TextStyle(fontSize: 16, fontFamily: 'Quicksand'),
-                  ),
-                  Container(height: 2, width: 75, color: Colors.teal[300]),
-                  SizedBox(height: 4),
-                  Text(
-                    'Neto Mvll',
-                    style: TextStyle(fontSize: 12, fontFamily: 'Quicksand'),
-                  ),
-                  SizedBox(height: 4),
-                ],
-              ),
-            ],
+                SizedBox(width: 26),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      recipe['name'],
+                      style: TextStyle(fontSize: 16, fontFamily: 'Quicksand'),
+                    ),
+                    Container(height: 2, width: 75, color: Colors.teal[300]),
+                    SizedBox(height: 4),
+                    Text(
+                      recipe['author'],
+                      style: TextStyle(fontSize: 12, fontFamily: 'Quicksand'),
+                    ),
+                    SizedBox(height: 4),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -92,16 +123,16 @@ class RecipeForm extends StatelessWidget {
   const RecipeForm({super.key});
   @override
   Widget build(BuildContext context) {
-    final _formKey = GlobalKey<FormState>();
-    final TextEditingController _nameController = TextEditingController();;
-    final TextEditingController _instructionsController =
+    final formKey = GlobalKey<FormState>();
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController instructionsController =
         TextEditingController();
-    final TextEditingController _imageURLController = TextEditingController();
-    final TextEditingController _authorController = TextEditingController();
+    final TextEditingController imageURLController = TextEditingController();
+    final TextEditingController authorController = TextEditingController();
     return Padding(
       padding: EdgeInsets.all(8),
       child: Form(
-        key: _formKey,
+        key: formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -116,7 +147,7 @@ class RecipeForm extends StatelessWidget {
             ),
             SizedBox(height: 16),
             _buildTextField(
-              controller: _nameController,
+              controller: nameController,
               label: 'Name',
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -128,7 +159,7 @@ class RecipeForm extends StatelessWidget {
             SizedBox(height: 16),
             _buildTextField(
               maxLines: 4,
-              controller: _instructionsController,
+              controller: instructionsController,
               label: 'Instructions',
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -139,7 +170,7 @@ class RecipeForm extends StatelessWidget {
             ),
             SizedBox(height: 16),
             _buildTextField(
-              controller: _imageURLController,
+              controller: imageURLController,
               label: 'Image URL',
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -150,7 +181,7 @@ class RecipeForm extends StatelessWidget {
             ),
             SizedBox(height: 16),
             _buildTextField(
-              controller: _authorController,
+              controller: authorController,
               label: 'Author',
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -163,7 +194,7 @@ class RecipeForm extends StatelessWidget {
             Center(
               child: ElevatedButton(
                 onPressed: (){
-                  if(_formKey.currentState!.validate()){
+                  if(formKey.currentState!.validate()){
                   Navigator.pop(context);
                 }
                 },
